@@ -25,7 +25,6 @@ classifiers = [
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering :: Visualization",
     "Topic :: Multimedia :: Video",
-    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
     "opencv-python>=4.8.0.74",
@@ -34,22 +33,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0.0", "pylint>=2.17.0", "black>=23.0.0"]
 audio = ["ffmpeg-python>=0.2.0"]
+dev = ["pytest>=7.0.0", "pylint>=2.17.0", "black>=23.0.0"]
 
 [project.urls]
-"Homepage" = "https://github.com/yourusername/FiiPython"
-"Bug Reports" = "https://github.com/yourusername/FiiPython/issues"
-"Documentation" = "https://github.com/yourusername/FiiPython#readme"
+Homepage = "https://github.com/Xing-yuyu/FiiPython"
+"Bug Reports" = "https://github.com/Xing-yuyu/FiiPython/issues"
 
 [project.scripts]
 fiipython-simulate = "scripts.run_simulation:main"
 fiipython-show = "scripts.show:main"
-
-[tool.black]
-line-length = 120
-target-version = ['py38', 'py39', 'py310', 'py311']
-
-[tool.isort]
-profile = "black"
-line_length = 120
