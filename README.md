@@ -2,7 +2,7 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/FiiPython.svg)](https://pypi.org/project/FiiPython/)
 [![Python versions](https://img.shields.io/pypi/pyversions/FiiPython.svg)](https://pypi.org/project/FiiPython/)
-[![License](https://img.shields.io/github/license/yourusername/FiiPython.svg)](https://github.com/yourusername/FiiPython/blob/main/LICENSE)
+[![License](https://img.shields.io/github/license/yourusername/FiiPython.svg)](https://github.com/Xing-yuyu/FiiPython/blob/main/LICENSE)
 
 一个用于解析FII文件、计算无人机运动状态并生成可视化视频的仿真系统。
 
