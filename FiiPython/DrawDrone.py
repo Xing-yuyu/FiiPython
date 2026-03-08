@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 import os
 import xmltodict
-from VideoSaver import VideoSaver
+from .VideoSaver import VideoSaver
 import gc
 import math
 from typing import List, Dict, Any, Optional, Tuple, Generator
