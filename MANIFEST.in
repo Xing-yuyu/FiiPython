@@ -1,0 +1,9 @@
+include README.md
+include LICENSE
+include requirements.txt
+include pyproject.toml
+include setup.cfg
+recursive-include FiiPython *.py
+recursive-include scripts *.py
+recursive-include examples *.py
+recursive-include tests *.py
