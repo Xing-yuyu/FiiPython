@@ -1,9 +1,19 @@
 # FiiPython - FII无人机仿真系统
 
-[![PyPI version](https://img.shields.io/pypi/v/FiiPython.svg)](https://pypi.org/project/FiiPython/)
-[![Python versions](https://img.shields.io/pypi/pyversions/FiiPython.svg)](https://pypi.org/project/FiiPython/)
-[![License](https://img.shields.io/github/license/yourusername/FiiPython.svg)](https://github.com/Xing-yuyu/FiiPython/blob/main/LICENSE)
+<div align="center">
 
+![Python Version](https://img.shields.io/badge/python-3.8%2B-blue)
+![PyPI version](https://img.shields.io/pypi/v/FiiPython.svg)
+![License](https://img.shields.io/github/license/Xing-yuyu/FiiPython.svg)
+![Downloads](https://img.shields.io/pypi/dm/FiiPython.svg)
+![GitHub stars](https://img.shields.io/github/stars/Xing-yuyu/FiiPython?style=social)
+
+**[English](#english) | [中文](#chinese)**
+
+</div>
+
+---
+<a name="chinese"></a>
 一个用于解析FII文件、计算无人机运动状态并生成可视化视频的仿真系统。
 
 ## ✨ 特性
@@ -81,15 +91,25 @@ show(
 └── background.mp3             # 背景音乐（可选，自动加载）
 ```
 ⚙️ 参数说明
-参数	说明	默认值	示例
-show_fps	显示帧率	60	--show-fps 30
-video_fps	视频帧率	60	--video-fps 120
-simulate	是否显示窗口	False	--simulate True
-save	是否保存视频	True	--save False
-save_as	保存文件名	video.mp4	--save-as result.mp4
-clarity	清晰度倍数	1	--clarity 2
-max_memory_mb	最大内存使用(MB)	1024	--max-memory 2048
-fii-file	FII文件路径	./	--fii-file ./test.fii
+
+参数  说明  默认值 示例
+
+show_fps    显示帧率    60  --show-fps 30
+
+video_fps   视频帧率    60  --video-fps 120
+
+simulate    是否显示窗口  False   --simulate True
+
+save    是否保存视频  True    --save False
+
+save_as 保存文件名   video.mp4   --save-as result.mp4
+
+clarity 清晰度倍数   1   --clarity 2
+
+max_memory_mb   最大内存使用(MB)  1024    --max-memory 2048
+
+fii-file    FII文件路径 ./  --fii-file ./test.fii
+
 🎯 运动指令示例
 在XML文件中可以使用的运动指令：
 
@@ -184,7 +204,9 @@ Fork 本仓库
 打开一个 Pull Request
 
 📝 更新日志
+
 v1.0.0 (2024-03-08)
+
 🎉 首次发布
 
 ✨ 支持FII文件解析
@@ -198,6 +220,7 @@ v1.0.0 (2024-03-08)
 ✨ 支持多种灯光效果
 
 v1.1.0 (计划中)
+
 🖼️ 添加3D视图
 
 📊 支持GPU渲染
