@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "FiiPython"
-version = "1.0.0"
+version = "1.0.1"
 description = "FII无人机仿真系统 - 解析FII文件并生成无人机运动视频"
 readme = "README.md"
 authors = [
-    {name = "FII Team", email = "your.email@example.com"},
+    {name = "星昱羽", email = "sbwangziyu1123@163.com"},
 ]
-license = {text = "MIT"}  # 保持这样，或者使用 license = "MIT"
+license = {text = "Stay At Home"}  # 保持这样，或者使用 license = "MIT"
 requires-python = ">=3.8"
 dependencies = [
     "opencv-python>=4.8.0.74",
@@ -23,8 +23,8 @@ audio = ["ffmpeg-python>=0.2.0"]
 dev = ["pytest>=7.0.0", "pylint>=2.17.0", "black>=23.0.0"]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/FiiPython"
-"Bug Reports" = "https://github.com/yourusername/FiiPython/issues"
+Homepage = "https://github.com/Xing-yuyu/FiiPython"
+"Bug Reports" = "https://github.com/Xing-yuyu/FiiPython/issues"
 
 [project.scripts]
 fiipython-simulate = "scripts.run_simulation:main"
