@@ -577,10 +577,22 @@ class DroneStateInterpolator:
         if not isinstance(input_keyframes, dict):
             raise ValueError(f"input_keyframes必须是字典类型，当前是: {type(input_keyframes)}")
 
+        # 检查是否为空字典
+        if not input_keyframes:
+            print(f"警告: 无人机 {takeoff_pos} 的关键帧字典为空！")
+            # 创建一个默认的关键帧
+            input_keyframes = {0: {}}
+
         self.keyframes = dict(input_keyframes)
         self.sorted_keyframes = sorted(self.keyframes.items())
-        self.start_time = 0
-        self.end_time = self.sorted_keyframes[-1][0]
+
+        if not self.sorted_keyframes:
+            print(f"错误: sorted_keyframes 为空！")
+            self.start_time = 0
+            self.end_time = 0
+        else:
+            self.start_time = 0
+            self.end_time = self.sorted_keyframes[-1][0]
 
         # 运动状态 - 传入起飞点
         self.movement = MovementState(takeoff_pos)
