@@ -4,5 +4,5 @@
     <option name="pathToExecutable" value="C:\ProgramData\anaconda3\Scripts\black.exe" />
     <option name="sdkName" value="fiiPython" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="fiiPython" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.13" project-jdk-type="Python SDK" />
 </project>

@@ -64,7 +64,15 @@ class BreathEffect(LightEffect):
 
 
 class MotorHorseEffect(LightEffect):
-    """跑马灯效果：四个马达依次变色"""
+    """
+    跑马灯效果：四个马达依次变色
+
+    参数:
+        start_time: 开始时间(ms)
+        colors: 四个马达的颜色列表 [[r,g,b], [r,g,b], [r,g,b], [r,g,b]]
+        clock: True=顺时针, False=逆时针
+        delay: 跑完一圈的总时间(ms)，每个马达显示时间为 delay/4
+    """
 
     def __init__(self, start_time: int, colors: List[Tuple[int, int, int]],
                  clock: bool, delay: int):
@@ -74,21 +82,65 @@ class MotorHorseEffect(LightEffect):
         self.delay = delay
         self.num_colors = len(colors)
 
+        # 每个马达的显示时间
+        self.step_duration = delay / 4  # 每个马达显示的时间
+
+        print(f"  跑马灯初始化: colors={colors}, clock={clock}, delay={delay}ms, step={self.step_duration}ms")
+
     def get_motor_colors(self, current_time: int) -> Dict[int, Tuple[int, int, int]]:
-        time_offset = (current_time - self.start_time) // self.delay
-        phase = time_offset % self.num_colors
+        """
+        获取当前时间各个马达的颜色
+
+        跑马灯逻辑：
+        - 总周期 = delay ms
+        - 每个马达显示 delay/4 ms
+        - 顺时针顺序: 1->2->3->4->1...
+        - 逆时针顺序: 4->3->2->1->4...
+
+        Args:
+            current_time: 当前时间(ms)
+
+        Returns:
+            Dict[int, Tuple[int,int,int]]: 马达编号->颜色 的字典
+        """
+        # 计算当前时间相对于开始时间的偏移
+        time_offset = current_time - self.start_time
+        if time_offset < 0:
+            time_offset = 0
+
+        # 计算当前在哪个步骤 (0,1,2,3 循环)
+        # 每个步骤持续 step_duration ms
+        step = int((time_offset / self.step_duration) % 4)
 
         result = {}
+
         if self.clock:  # 顺时针: 1->2->3->4
-            for i in range(4):
-                color_index = (phase + i) % self.num_colors
-                result[i + 1] = self.colors[color_index]
+            # 马达1: 当前step的颜色
+            result[1] = self.colors[step % 4]
+            # 马达2: 下一个step的颜色
+            result[2] = self.colors[(step + 1) % 4]
+            # 马达3: 下两个step的颜色
+            result[3] = self.colors[(step + 2) % 4]
+            # 马达4: 下三个step的颜色
+            result[4] = self.colors[(step + 3) % 4]
+
         else:  # 逆时针: 4->3->2->1
-            for i in range(4):
-                color_index = (phase + (3 - i)) % self.num_colors
-                result[i + 1] = self.colors[color_index]
+            # 马达4: 当前step的颜色
+            result[4] = self.colors[step % 4]
+            # 马达3: 下一个step的颜色
+            result[3] = self.colors[(step + 1) % 4]
+            # 马达2: 下两个step的颜色
+            result[2] = self.colors[(step + 2) % 4]
+            # 马达1: 下三个step的颜色
+            result[1] = self.colors[(step + 3) % 4]
 
         return result
+
+    def get_color(self, current_time: int) -> Tuple[int, int, int]:
+        """
+        基类方法，这里用不到，因为MotorHorse是给马达用的
+        """
+        return (0, 0, 0)
 
 
 class MovementState:
@@ -302,6 +354,7 @@ class MovementState:
         """
         根据简化的运动学公式计算当前位置
         使用速度控制，避免复杂的二次方程
+        修改：到达目标后保持静止，但不会出错
         """
         dt = (current_time - self.start_move_time) / 1000.0
 
@@ -323,15 +376,16 @@ class MovementState:
             self.current_vx = self.target_vx * (1 - progress) if abs(self.target_vx) > 0 else 0
             self.current_vy = self.target_vy * (1 - progress) if abs(self.target_vy) > 0 else 0
             self.current_vz = self.target_vz * (1 - progress) if abs(self.target_vz) > 0 else 0
+
+            self.is_moving = True
         else:
-            # 到达目标
+            # 到达目标后，保持位置不变，速度为0
             x, y, z = self.target_pos
             self.current_vx = 0
             self.current_vy = 0
             self.current_vz = 0
             self.is_moving = False
-            if self.target_pos[2] == 0:
-                self.is_flying = False
+            # 注意：不修改 is_flying，因为可能还在空中
 
         self.pos = [x, y, z]
         return [x, y, z]
@@ -521,19 +575,55 @@ class LightState:
             motor_str = "全部马达" if motor == 0 else f"马达{motor}"
             print(f"  灯光: {motor_str}呼吸 {cmd_value['color']}")
 
+
         elif cmd_key == 'MotorHorse':
+
+            """
+
+            跑马灯效果
+
+            cmd_value 格式: {
+
+                'colors': [[r,g,b], [r,g,b], [r,g,b], [r,g,b]],
+
+                'clock': True/False,
+
+                'delay': 800  # 一圈总时间(ms)
+
+            }
+
+            """
+
+            colors = cmd_value['colors']
+
+            clock = cmd_value['clock']
+
+            delay = cmd_value['delay']
+
+            # 创建跑马灯效果
+
             effect = MotorHorseEffect(
+
                 current_time,
-                cmd_value['colors'],
-                cmd_value['clock'],
-                cmd_value['delay']
+
+                colors,
+
+                clock,
+
+                delay
+
             )
+
+            # 设置跑马灯效果，清除其他马达效果
+
             self.motor_horse_effect = effect
-            # 清除单独的马达效果
+
             for i in range(1, 5):
                 self.motor_effects[i] = None
-            direction = "顺时针" if cmd_value['clock'] else "逆时针"
-            print(f"  灯光: 跑马灯 {direction}, delay={cmd_value['delay']}ms")
+
+            direction = "顺时针" if clock else "逆时针"
+
+            print(f"  灯光: 跑马灯 {direction}, 颜色序列={colors}, 一圈时间={delay}ms")
 
     def get_colors(self, current_time: int) -> Dict[str, Tuple[int, int, int]]:
         """获取当前所有灯光颜色"""
@@ -551,13 +641,14 @@ class LightState:
         else:
             result['body'] = self.body_color
 
-        # 处理跑马灯效果
-        if self.motor_horse_effect:
+        # 处理跑马灯效果 - 优先于单独的马达效果
+        if self.motor_horse_effect is not None:
+            # 获取跑马灯各个马达的颜色
             motor_colors = self.motor_horse_effect.get_motor_colors(current_time)
             for motor, color in motor_colors.items():
                 result[f'motor{motor}'] = color
         else:
-            # 处理单独的马达
+            # 处理单独的马达效果
             for motor in range(1, 5):
                 if self.motor_effects[motor]:
                     result[f'motor{motor}'] = self.motor_effects[motor].get_color(current_time)
@@ -636,6 +727,7 @@ class DroneStateInterpolator:
     def generate_states(self) -> Dict[int, Dict[str, Any]]:
         """
         生成每一毫秒的状态数据
+        修改：降落完成后继续往后多计算5s（保持运动状态）
         """
         print(f"\n生成状态数据：{self.start_time} - {self.end_time}ms")
         total_points = self.end_time - self.start_time + 1
@@ -694,29 +786,39 @@ class DroneStateInterpolator:
                     'light': light_state.copy()
                 }
 
-            # 降落后再延长5000ms
-            print(f">>> 降落完成后延长5000ms")
-            last_time = land_end_time
-            last_state = result[last_time]
+            # 降落后再继续计算5000ms（保持运动状态）
+            print(f">>> 降落后继续计算5000ms")
+            extra_end_time = land_end_time + 5000
 
-            for t in range(last_time + 1, last_time + 5001):
+            for t in range(land_end_time + 1, extra_end_time + 1):
+                # 继续计算位置（保持运动状态）
+                current_pos = self.movement.calculate_position(t)
+                light_state = self.light.get_colors(t)
                 result[t] = {
-                    'pos': [last_state['pos'][0], last_state['pos'][1], 0.0],
-                    'light': last_state['light'].copy()
+                    'pos': [round(coord, 2) for coord in current_pos],
+                    'light': light_state.copy()
                 }
+
+            print(f"   继续计算了 5000ms，到 {extra_end_time}ms 结束")
+
         else:
-            # 如果没有Land指令，只延长5000ms
-            print(f"\n>>> 延长5000ms")
+            # 如果没有Land指令，在最后一个指令后继续计算5000ms
+            print(f"\n>>> 没有降落指令，在最后一个指令后继续计算5000ms")
             last_time = self.end_time
-            last_state = result[last_time]
+            extra_end_time = last_time + 5000
 
-            for t in range(last_time + 1, last_time + 5001):
+            for t in range(last_time + 1, extra_end_time + 1):
+                # 继续计算位置（保持运动状态）
+                current_pos = self.movement.calculate_position(t)
+                light_state = self.light.get_colors(t)
                 result[t] = {
-                    'pos': [last_state['pos'][0], last_state['pos'][1], last_state['pos'][2]],
-                    'light': last_state['light'].copy()
+                    'pos': [round(coord, 2) for coord in current_pos],
+                    'light': light_state.copy()
                 }
 
-        print(f"生成完成！总时间点: {len(result)}")
+            print(f"   继续计算了 5000ms，到 {extra_end_time}ms 结束")
+
+        print(f"生成完成！总时间点: {len(result)}，最后时间: {max(result.keys())}ms")
         return result
 
 

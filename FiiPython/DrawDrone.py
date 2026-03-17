@@ -90,8 +90,8 @@ def drawDrone(state, frame, size=560, clarity=1):
     #边框关键点
     k1_pos=(0,0)
     k2_pos=(2*(size+40)*clarity,0)
-    k3_pos=(2*(size+40)*clarity,600)
-    k4_pos=((size+40)*clarity,600)
+    k3_pos=(2*(size+40)*clarity,600*clarity)
+    k4_pos=((size+40)*clarity,600*clarity)
     k5_pos=((size+40)*clarity,(size+40)*clarity)
     k6_pos=(0,(size+40)*clarity)
     k7_pos=((size+40)*clarity,0)
@@ -141,18 +141,13 @@ def drawDrone(state, frame, size=560, clarity=1):
     cv2.circle(frame, (motor4_x, motor4_y), 7*clarity, (255, 255, 255), clarity)
 
     # 绘制机身（填充颜色 - BGR）
-    if body_bgr != (0,0,0):
-        cv2.circle(frame, (center_x, center_y), 5*clarity, body_bgr, -1)
+    cv2.circle(frame, (center_x, center_y), 5*clarity, body_bgr, -1)
 
     # 绘制马达（填充颜色 - BGR）
-    if motor1_bgr != (0,0,0):
-        cv2.circle(frame, (motor1_x, motor1_y), 2*clarity, motor1_bgr, -1)
-    if motor2_bgr != (0,0,0):
-        cv2.circle(frame, (motor2_x, motor2_y), 2*clarity, motor2_bgr, -1)
-    if motor3_bgr != (0,0,0):
-        cv2.circle(frame, (motor3_x, motor3_y), 2*clarity, motor3_bgr, -1)
-    if motor4_bgr != (0,0,0):
-        cv2.circle(frame, (motor4_x, motor4_y), 2*clarity, motor4_bgr, -1)
+    cv2.circle(frame, (motor1_x, motor1_y), 2*clarity, motor1_bgr, -1)
+    cv2.circle(frame, (motor2_x, motor2_y), 2*clarity, motor2_bgr, -1)
+    cv2.circle(frame, (motor3_x, motor3_y), 2*clarity, motor3_bgr, -1)
+    cv2.circle(frame, (motor4_x, motor4_y), 2*clarity, motor4_bgr, -1)
 
 
     """前视图部分"""
@@ -161,24 +156,18 @@ def drawDrone(state, frame, size=560, clarity=1):
 
     cv2.line(frame,(center_x_f-14*clarity,center_z_f),(center_x_f+14*clarity,center_z_f),(255,255,255),clarity)
 
-    if body_bgr != (0, 0, 0):
-        cv2.circle(frame, (center_x_f, center_z_f),5*clarity,body_bgr,-1)
-    if motor3_bgr != (0,0,0):
-        cv2.circle(frame,(center_x_f+9*clarity,center_z_f),3*clarity,motor3_bgr,-1)
-    if motor4_bgr != (0,0,0):
-        cv2.circle(frame, (center_x_f-9*clarity,center_z_f),3*clarity,motor4_bgr,-1)
+    cv2.circle(frame, (center_x_f, center_z_f),5*clarity,body_bgr,-1)
+    cv2.circle(frame,(center_x_f+9*clarity,center_z_f),3*clarity,motor3_bgr,-1)
+    cv2.circle(frame, (center_x_f-9*clarity,center_z_f),3*clarity,motor4_bgr,-1)
 
     """右视图部分"""
     center_y_r =int( clarity * (size + 60 + world_y))
     center_z_r = int(clarity * (575 - world_z))
 
     cv2.line(frame, (center_y_r - 14 * clarity, center_z_r), (center_y_r + 14 * clarity, center_z_r), (255, 255, 255), clarity)
-    if body_bgr != (0, 0, 0):
-        cv2.circle(frame, (center_y_r, center_z_r), 5 * clarity, body_bgr, -1)
-    if motor2_bgr != (0,0,0):
-        cv2.circle(frame, (center_y_r + 9 * clarity, center_z_r), 3 * clarity, motor2_bgr, -1)
-    if motor3_bgr != (0,0,0):
-        cv2.circle(frame, (center_y_r - 9 * clarity, center_z_r), 3 * clarity, motor3_bgr, -1)
+    cv2.circle(frame, (center_y_r, center_z_r), 5 * clarity, body_bgr, -1)
+    cv2.circle(frame, (center_y_r + 9 * clarity, center_z_r), 3 * clarity, motor2_bgr, -1)
+    cv2.circle(frame, (center_y_r - 9 * clarity, center_z_r), 3 * clarity, motor3_bgr, -1)
 
 def generate_frames(states_list, size=560, clarity=1, target_fps=None, output_color_mode='BGR', max_memory_mb=1024):
     """

@@ -42,226 +42,440 @@ def remove_empty_timestamps(final_dict):
     return {time: actions for time, actions in final_dict.items() if actions}
 
 
-# ReadFii.py (极简修复版)
-
-def read_dict_xml(dict_node, final_dict, cnt_time):
-    """
-    递归读取XML字典节点
-    修复：处理dict_node可能是列表的情况
-    """
+def read_dict_xml(dict_node, final_dict, cnt_time):  # 递归读这个飞机的xml???
     try:
-        # 处理 dict_node 是列表的情况
-        if isinstance(dict_node, list):
-            # 如果是列表，遍历每个元素
-            for node in dict_node:
-                final_dict, cnt_time = read_dict_xml(node, final_dict, cnt_time)
-            return final_dict, cnt_time
-
-        # 确保 dict_node 是字典
-        if not isinstance(dict_node, dict):
-            print(f"警告: dict_node 不是字典: {type(dict_node)}")
-            return final_dict, cnt_time
-
-        # 获取block类型
-        block_type = dict_node.get('@type')
-        if not block_type:
-            # 如果没有@type，尝试处理next或statement
-            if 'next' in dict_node and dict_node['next']:
-                next_block = dict_node['next'].get('block')
-                if next_block:
-                    final_dict, cnt_time = read_dict_xml(next_block, final_dict, cnt_time)
-            if 'statement' in dict_node and dict_node['statement']:
-                stmt_block = dict_node['statement'].get('block')
-                if stmt_block:
-                    final_dict, cnt_time = read_dict_xml(stmt_block, final_dict, cnt_time)
-            return final_dict, cnt_time
+        ###print(dict_node.keys())
+        ###print(dict_node['@type'])
+        # print(dict_node)
+        block_type = dict_node['@type']
 
         # 确保当前时间戳存在
         final_dict = ensure_time_exists(final_dict, cnt_time)
 
-        # 根据block_type处理不同指令
+        if isinstance(dict_node, list):
+            print(f"跳过同级元素列表，长度 {len(dict_node)}")
+            return final_dict, cnt_time
+
+            # 确保 dict_node 是字典
+        if not isinstance(dict_node, dict):
+            return final_dict, cnt_time
+
         if block_type == 'block_inittime':
-            # 处理初始化时间
-            fields = dict_node.get('field', [])
-            if fields and isinstance(fields, list) and len(fields) > 0:
-                time_str = fields[0].get('#text', '0:00')
-                minutes, seconds = map(int, time_str.split(':'))
-                cnt_time = minutes * 60 * 1000 + seconds * 1000
-                final_dict = ensure_time_exists(final_dict, cnt_time)
+            # print(dict_node['field'][0]['#text'])
+            time_str = dict_node['field'][0]['#text']
+            minutes, seconds = map(int, time_str.split(':'))
+            cnt_time = minutes * 60 * 1000 + seconds * 1000
+            ###print(f'{cnt_time}ms')
+            final_dict = ensure_time_exists(final_dict, cnt_time)
+            #print(final_dict, cnt_time)
+            # 处理statement中的block
+            if 'statement' in dict_node and dict_node['statement'] and 'block' in dict_node['statement']:
+                final_dict, cnt_time = read_dict_xml(dict_node['statement']['block'], final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
 
-            # 处理statement
-            if 'statement' in dict_node and dict_node['statement']:
-                stmt_block = dict_node['statement'].get('block')
-                if stmt_block:
-                    final_dict, cnt_time = read_dict_xml(stmt_block, final_dict, cnt_time)
+        elif block_type == 'block_delay':  # 太好了终于是delay
+            unit_of_time = dict_node['field'][0]['#text']  # 为str 0=ms 1=s 2=minute
+            value = int(dict_node['field'][1]['#text'])
+            ###print(unit_of_time,value)
 
-            # 处理next
-            if 'next' in dict_node and dict_node['next']:
-                next_block = dict_node['next'].get('block')
-                if next_block:
-                    final_dict, cnt_time = read_dict_xml(next_block, final_dict, cnt_time)
+            time_multipliers = {'0': 1, '1': 1000, '2': 60000}
+            cnt_time += value * time_multipliers.get(unit_of_time, 1)
 
-        elif block_type == 'block_delay':
-            # 处理延时
-            fields = dict_node.get('field', [])
-            if fields and isinstance(fields, list) and len(fields) >= 2:
-                unit = fields[0].get('#text', '0')
-                value = int(fields[1].get('#text', '0'))
+            final_dict = ensure_time_exists(final_dict, cnt_time)
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
 
-                time_multipliers = {'0': 1, '1': 1000, '2': 60000}
-                cnt_time += value * time_multipliers.get(unit, 1)
-                final_dict = ensure_time_exists(final_dict, cnt_time)
-
-            # 处理next
-            if 'next' in dict_node and dict_node['next']:
-                next_block = dict_node['next'].get('block')
-                if next_block:
-                    final_dict, cnt_time = read_dict_xml(next_block, final_dict, cnt_time)
-
-        elif block_type == 'Goertek_TakeOff2':
-            # 起飞
-            field = dict_node.get('field', {})
-            if isinstance(field, dict):
-                height = int(field.get('#text', 0))
-            elif isinstance(field, list) and len(field) > 0:
-                height = int(field[0].get('#text', 0))
-            else:
-                height = 0
+        elif block_type == 'Goertek_TakeOff2':  # 芜湖起飞  {'TakeOff': height}
+            height = int(dict_node['field']['#text'])
+            # print(height)
             final_dict[cnt_time]['TakeOff'] = height
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
 
-            if 'next' in dict_node and dict_node['next']:
-                next_block = dict_node['next'].get('block')
-                if next_block:
-                    final_dict, cnt_time = read_dict_xml(next_block, final_dict, cnt_time)
+        # 2代灯光 - 全身灯光 (机身+马达) 使用 All 前缀
+        elif block_type == 'Goertek_LEDBreathALL2':  # 全身呼吸灯 {'AllBreath': {'color':(r,g,b),'time1':time1,'time2':time2,'brightness':百分数化小数}}
+            color = hex_to_rgb(dict_node['field'][1]['#text'])
+            time1 = int(dict_node['field'][0]['#text'])
+            time2 = int(dict_node['field'][3]['#text'])
+            brightness = float(dict_node['field'][2]['#text'])
+            final_dict[cnt_time]['AllBreath'] = {'color': color, 'time1': time1, 'time2': time2,
+                                                 'brightness': brightness}
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
 
-        elif block_type == 'Goertek_Move':
-            # 相对移动
-            fields = dict_node.get('field', [])
-            if fields and isinstance(fields, list) and len(fields) >= 3:
-                x = int(float(fields[0].get('#text', '0')))
-                y = int(float(fields[1].get('#text', '0')))
-                z = int(float(fields[2].get('#text', '0')))
-                final_dict[cnt_time]['Move'] = [x, y, z]
-                print(f"相对移动: ({x}, {y}, {z})")
+        elif block_type == 'Goertek_LEDTurnOnAllSingleColor2':  # 全身灯全亮 {'AllOn': (r,g,b)}
+            color = hex_to_rgb(dict_node['field']['#text'])
+            final_dict[cnt_time]['AllOn'] = color
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
 
-            if 'next' in dict_node and dict_node['next']:
-                next_block = dict_node['next'].get('block')
-                if next_block:
-                    final_dict, cnt_time = read_dict_xml(next_block, final_dict, cnt_time)
+        elif block_type == 'Goertek_LEDTurnOffAll2':  # 全身灯全灭 {'AllOff': 0}
+            final_dict[cnt_time]['AllOff'] = 0
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
 
-        elif block_type == 'Goertek_MoveToCoord2':
-            # 绝对移动
-            fields = dict_node.get('field', [])
-            if fields and isinstance(fields, list) and len(fields) >= 3:
-                x = int(float(fields[0].get('#text', '0')))
-                y = int(float(fields[1].get('#text', '0')))
-                z = int(float(fields[2].get('#text', '0')))
-                final_dict[cnt_time]['MoveTo'] = [x, y, z]
+        elif block_type == 'Goertek_LEDBlinkALL2':  # 全身闪烁灯 {'AllBlink': {'color':(r,g,b),'brightness':brightness,'dur':dur,'delay':delay}}
+            color = hex_to_rgb(dict_node['field'][0]['#text'])
+            brightness = float(dict_node['field'][1]['#text'])
+            dur = int(dict_node['field'][2]['#text'])
+            delay = int(dict_node['field'][3]['#text'])
+            final_dict[cnt_time]['AllBlink'] = {'color': color, 'brightness': brightness, 'dur': dur, 'delay': delay}
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
 
-            if 'next' in dict_node and dict_node['next']:
-                next_block = dict_node['next'].get('block')
-                if next_block:
-                    final_dict, cnt_time = read_dict_xml(next_block, final_dict, cnt_time)
+        # 3代灯光 - 机身灯光 (不含马达)
+        elif block_type == 'Goertek_LEDBreathALL3':  # 机身呼吸灯 {'BodyBreath': {'color':(r,g,b),'time1':time1,'time2':time2,'brightness':百分数化小数}}
+            color = hex_to_rgb(dict_node['field'][1]['#text'])
+            time1 = int(dict_node['field'][0]['#text'])
+            time2 = int(dict_node['field'][3]['#text'])
+            brightness = float(dict_node['field'][2]['#text'])
+            final_dict[cnt_time]['BodyBreath'] = {'color': color, 'time1': time1, 'time2': time2,
+                                                  'brightness': brightness}
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
 
-        elif block_type == 'Goertek_Land':
-            # 降落
+        elif block_type == 'Goertek_LEDTurnOnAllSingleColor3':  # 机身灯全亮 {'BodyOn': (r,g,b)}
+            color = hex_to_rgb(dict_node['field']['#text'])
+            final_dict[cnt_time]['BodyOn'] = color
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
+
+        elif block_type == 'Goertek_LEDTurnOffAll3':  # 机身灯全灭 {'BodyOff': 0}
+            final_dict[cnt_time]['BodyOff'] = 0
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
+
+        elif block_type == 'Goertek_LEDBlinkALL3':  # 机身闪烁灯 {'BodyBlink': {'color':(r,g,b),'brightness':brightness,'dur':dur,'delay':delay}}
+            color = hex_to_rgb(dict_node['field'][0]['#text'])
+            brightness = float(dict_node['field'][1]['#text']) / 100
+            dur = int(dict_node['field'][2]['#text'])
+            delay = int(dict_node['field'][3]['#text'])
+            final_dict[cnt_time]['BodyBlink'] = {'color': color, 'brightness': brightness, 'dur': dur, 'delay': delay}
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
+
+        # 4代灯光 - 马达灯光
+        elif block_type == 'Goertek_LEDTurnOnAllSingleColor4':  # 指定马达灯全亮 {'MotorOn': {'motor':马达编号, 'color':(r,g,b)}}
+            motor = int(dict_node['field'][0]['#text'])  # 马达编号：0-全亮 1~4-1~4号马达
+            color = hex_to_rgb(dict_node['field'][1]['#text'])
+            final_dict[cnt_time]['MotorOn'] = {'motor': motor, 'color': color}
+            # 添加注释说明马达编号含义
+            motor_desc = "0-全亮" if motor == 0 else f"{motor}号马达"
+            #print(f"MotorOn: 马达 {motor_desc}, 颜色 {color}")
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
+
+        elif block_type == 'Goertek_LEDTurnOffAll4':  # 指定马达关灯 {'MotorOff': motor}
+            motor = int(dict_node['field']['#text'])  # 马达编号：0-全亮 1~4-1~4号马达
+            final_dict[cnt_time]['MotorOff'] = motor
+            # 添加注释说明马达编号含义
+            motor_desc = "0-全亮" if motor == 0 else f"{motor}号马达"
+            #print(f"MotorOff: 马达 {motor_desc}")
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
+
+        elif block_type == 'Goertek_LEDBlinkALL4':  # 指定马达闪烁灯 {'MotorBlink': {'motor':马达编号, 'color':(r,g,b), 'brightness':brightness, 'dur':dur, 'delay':delay}}
+            motor = int(dict_node['field'][0]['#text'])  # 马达编号：0-全亮 1~4-1~4号马达
+            color = hex_to_rgb(dict_node['field'][1]['#text'])
+            brightness = float(dict_node['field'][2]['#text'])
+            dur = int(dict_node['field'][3]['#text'])
+            delay = int(dict_node['field'][4]['#text'])
+            final_dict[cnt_time]['MotorBlink'] = {'motor': motor, 'color': color, 'brightness': brightness, 'dur': dur,
+                                                  'delay': delay}
+            # 添加注释说明马达编号含义
+            motor_desc = "0-全亮" if motor == 0 else f"{motor}号马达"
+            #print(f"MotorBlink: 马达 {motor_desc}, 颜色 {color}")
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
+
+        elif block_type == 'Goertek_LEDBreathALL4':  # 指定马达呼吸灯 {'MotorBreath': {'motor':马达编号, 'color':(r,g,b), 'time1':time1, 'time2':time2, 'brightness':brightness}}
+            motor = int(dict_node['field'][0]['#text'])  # 马达编号：0-全亮 1~4-1~4号马达
+            time1 = int(dict_node['field'][1]['#text'])
+            color = hex_to_rgb(dict_node['field'][2]['#text'])
+            brightness = float(dict_node['field'][3]['#text'])
+            time2 = int(dict_node['field'][4]['#text'])
+            final_dict[cnt_time]['MotorBreath'] = {'motor': motor, 'color': color, 'time1': time1, 'time2': time2,
+                                                   'brightness': brightness}
+            # 添加注释说明马达编号含义
+            motor_desc = "0-全亮" if motor == 0 else f"{motor}号马达"
+            #print(f"MotorBreath: 马达 {motor_desc}, 颜色 {color}")
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
+
+        elif block_type == 'Goertek_LEDHorseALL4':  # 跑马灯 {'MotorHorse': {'colors':[color1,color2,color3,color4], 'clock':clock, 'delay':delay}}
+            color1 = hex_to_rgb(dict_node['field'][0]['#text'])
+            color2 = hex_to_rgb(dict_node['field'][1]['#text'])
+            color3 = hex_to_rgb(dict_node['field'][2]['#text'])
+            color4 = hex_to_rgb(dict_node['field'][3]['#text'])
+            clock = dict_node['field'][4]['#text'] == 'True'
+            delay = int(dict_node['field'][5]['#text'])
+            final_dict[cnt_time]['MotorHorse'] = {'colors': [color1, color2, color3, color4], 'clock': clock,
+                                                  'delay': delay}
+            #print(f"MotorHorse: 颜色 {color1}, {color2}, {color3}, {color4}")
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
+
+        elif block_type == 'Goertek_HorizontalSpeed':  # 水平速度加速度 {'XYSpeed': [v,a]}
+            v = int(dict_node['field'][0]['#text'])
+            a = int(dict_node['field'][1]['#text'])
+            final_dict[cnt_time]['XYSpeed'] = [v, a]
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
+
+        elif block_type == 'Goertek_VerticalSpeed':  # 竖直速度加速度 {'ZSpeed': [v,a]}
+            v = int(dict_node['field'][0]['#text'])
+            a = int(dict_node['field'][1]['#text'])
+            final_dict[cnt_time]['ZSpeed'] = [v, a]
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
+
+        elif block_type == 'Goertek_Move':  # 相对移动 {'Move': [x,y,z]}
+            x = int(float(dict_node['field'][0]['#text']))  # 先转float再转int，支持负数
+            y = int(float(dict_node['field'][1]['#text']))
+            z = int(float(dict_node['field'][2]['#text']))
+            final_dict[cnt_time]['Move'] = [x, y, z]
+            print(f"相对移动: ({x}, {y}, {z})")
+            print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
+
+        elif block_type == 'Goertek_MoveToCoord2':  # 移动到坐标 {'MoveTo': [x,y,z]}
+            x = int(float(dict_node['field'][0]['#text']))
+            y = int(float(dict_node['field'][1]['#text']))
+            z = int(float(dict_node['field'][2]['#text']))
+            final_dict[cnt_time]['MoveTo'] = [x, y, z]
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
+
+        elif block_type == 'Goertek_Land':  # 降落 {'Land': 0}
             final_dict[cnt_time]['Land'] = 0
-            if 'next' in dict_node and dict_node['next']:
-                next_block = dict_node['next'].get('block')
-                if next_block:
-                    final_dict, cnt_time = read_dict_xml(next_block, final_dict, cnt_time)
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
 
-        elif block_type == 'Goertek_HorizontalSpeed':
-            # 水平速度
-            fields = dict_node.get('field', [])
-            if fields and isinstance(fields, list) and len(fields) >= 2:
-                v = int(fields[0].get('#text', '100'))
-                a = int(fields[1].get('#text', '100'))
-                final_dict[cnt_time]['XYSpeed'] = [v, a]
+        # 其他块类型
+        elif block_type == 'Goertek_Point2':  # 定义点 {'Point': {'name':name, 'coord':[x,y,z]}}
+            name = dict_node['field'][0]['#text']
+            x = int(dict_node['field'][1]['#text'])
+            y = int(dict_node['field'][2]['#text'])
+            z = int(dict_node['field'][3]['#text'])
+            final_dict[cnt_time]['Point'] = {'name': name, 'coord': [x, y, z]}
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
 
-            if 'next' in dict_node and dict_node['next']:
-                next_block = dict_node['next'].get('block')
-                if next_block:
-                    final_dict, cnt_time = read_dict_xml(next_block, final_dict, cnt_time)
+        elif block_type == 'Goertek_AngularVelocity':  # 角速度 {'AngularVelocity': w}
+            w = int(dict_node['field']['#text'])
+            final_dict[cnt_time]['AngularVelocity'] = w
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
 
-        elif block_type == 'Goertek_VerticalSpeed':
-            # 垂直速度
-            fields = dict_node.get('field', [])
-            if fields and isinstance(fields, list) and len(fields) >= 2:
-                v = int(fields[0].get('#text', '100'))
-                a = int(fields[1].get('#text', '100'))
-                final_dict[cnt_time]['ZSpeed'] = [v, a]
+        elif block_type == 'Goertek_TurnTo':  # 转向到角度 {'TurnTo': {'direction':direction, 'angle':angle}}
+            direction = dict_node['field'][0]['#text']
+            angle = int(dict_node['field'][1]['#text'])
+            final_dict[cnt_time]['TurnTo'] = {'direction': direction, 'angle': angle}
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
 
-            if 'next' in dict_node and dict_node['next']:
-                next_block = dict_node['next'].get('block')
-                if next_block:
-                    final_dict, cnt_time = read_dict_xml(next_block, final_dict, cnt_time)
+        elif block_type == 'Goertek_Turn':  # 转向 {'Turn': {'direction':direction, 'angle':angle}}
+            direction = dict_node['field'][0]['#text']
+            angle = int(dict_node['field'][1]['#text'])
+            final_dict[cnt_time]['Turn'] = {'direction': direction, 'angle': angle}
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
 
-        elif block_type == 'controls_repeat':
-            # 循环展开
-            field = dict_node.get('field', {})
-            if isinstance(field, dict):
-                times = int(field.get('#text', '1'))
-            elif isinstance(field, list) and len(field) > 0:
-                times = int(field[0].get('#text', '1'))
-            else:
-                times = 1
+        elif block_type == 'Goertek_HighSpeedTranslate':  # 高速平移 {'HighSpeedTranslate': {'axis':axis, 'distance':d}}
+            axis = dict_node['field'][0]['#text']
+            distance = int(dict_node['field'][1]['#text'])
+            final_dict[cnt_time]['HighSpeedTranslate'] = {'axis': axis, 'distance': distance}
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
+
+        elif block_type == 'Goertek_SimpleHarmonicMotio':  # 简谐运动 {'SimpleHarmonicMotion': {'axis':axis, 'amplitude':amplitude}}
+            axis = dict_node['field'][0]['#text']
+            amplitude = int(dict_node['field'][1]['#text'])
+            final_dict[cnt_time]['SimpleHarmonicMotion'] = {'axis': axis, 'amplitude': amplitude}
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
+
+        elif block_type == 'Goertek_Lock':  # 上锁 {'Lock': 0}
+            final_dict[cnt_time]['Lock'] = 0
+            #print(final_dict, cnt_time)
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
+
+
+
+
+        elif block_type == 'controls_repeat':  # 循环 - 直接展开成正常块
+
+            times = int(dict_node['field']['#text'])
 
             print(f"展开循环 {times} 次")
 
-            if 'statement' in dict_node and dict_node['statement']:
-                stmt_block = dict_node['statement'].get('block')
-                if stmt_block:
-                    # 临时存储循环体
-                    loop_body_dict = {}
-                    loop_body_time = 0
-                    loop_body_dict, loop_body_time = read_dict_xml(stmt_block, loop_body_dict, loop_body_time)
+            # 处理循环内的语句，获取完整的循环体内容（包括next链）
 
-                    # 去除空时间戳
-                    loop_body_dict = remove_empty_timestamps(loop_body_dict)
+            if 'statement' in dict_node and dict_node['statement'] and 'block' in dict_node['statement']:
 
-                    if loop_body_dict:
-                        sorted_times = sorted(loop_body_dict.keys())
-                        total_loop_duration = loop_body_time
+                # 临时存储循环体
 
-                        # 展开循环
-                        base_time = cnt_time
-                        for i in range(times):
-                            for t in sorted_times:
-                                new_time = base_time + i * total_loop_duration + t
-                                final_dict = ensure_time_exists(final_dict, new_time)
-                                for key, value in loop_body_dict[t].items():
+                loop_body_dict = {}
+
+                loop_body_time = 0
+
+                # 递归读取statement中的整个block链
+
+                loop_body_dict, loop_body_time = read_dict_xml(
+
+                    dict_node['statement']['block'],
+
+                    loop_body_dict,
+
+                    loop_body_time
+
+                )
+
+                # 去除循环体内的空时间戳（但保留有动作的时间戳）
+
+                loop_body_dict = remove_empty_timestamps(loop_body_dict)
+
+                # 按时间戳排序获取循环体的动作序列
+
+                sorted_times = sorted(loop_body_dict.keys())
+
+                if sorted_times:
+
+                    print(f"循环体内容 (相对时间):")
+
+                    for t in sorted_times:
+                        print(f"  {t}ms: {loop_body_dict[t]}")
+
+                    # 循环体的总时长（最后一个动作的时间 + ？）
+
+                    # 注意：最后一个动作之后可能还有延时，但延时不会产生动作
+
+                    # 所以循环体的总时长应该是 loop_body_time（最后一个块处理完的时间）
+
+                    total_loop_duration = loop_body_time
+
+                    print(f"循环体总时长: {total_loop_duration}ms")
+
+                    # 保存当前时间，用于循环内时间戳计算
+
+                    base_time = cnt_time
+
+                    # 展开循环times次
+
+                    for i in range(times):
+
+                        # 对循环体中的每个动作，复制并调整时间戳
+
+                        for t in sorted_times:
+
+                            # 新时间戳 = 基础时间 + 循环次数 * 循环体总时长 + 动作的相对时间
+
+                            new_time = base_time + i * total_loop_duration + t
+
+                            # 确保该时间戳有字典
+
+                            final_dict = ensure_time_exists(final_dict, new_time)
+
+                            # 复制动作
+
+                            for key, value in loop_body_dict[t].items():
+
+                                if key in final_dict[new_time]:
+
+                                    print(f"错误: 时间戳 {new_time}ms 已有 {key} 动作")
+
+                                else:
+
                                     final_dict[new_time][key] = value
 
-                        cnt_time = base_time + times * total_loop_duration
+                            print(f"循环展开 {i + 1}/{times}: {new_time}ms -> {final_dict[new_time]}")
 
-            if 'next' in dict_node and dict_node['next']:
-                next_block = dict_node['next'].get('block')
-                if next_block:
-                    final_dict, cnt_time = read_dict_xml(next_block, final_dict, cnt_time)
+                    # 更新cnt_time到循环结束后的时间
 
-        elif block_type in ['Goertek_Start', 'Goertek_UnLock', 'Goertek_Lock']:
-            print('跳过指令:', block_type)
-            if 'next' in dict_node and dict_node['next']:
-                next_block = dict_node['next'].get('block')
-                if next_block:
-                    final_dict, cnt_time = read_dict_xml(next_block, final_dict, cnt_time)
+                    cnt_time = base_time + times * total_loop_duration
+
+                    print(f"循环结束，当前时间: {cnt_time}ms")
+
+            # 处理next中的block
+
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
+
+
+        elif block_type in ['Goertek_Start','Goertek_UnLock','Goertek_Lock']:
+            print('Fuck Goertek')
+            # 处理next中的block
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
 
         else:
-            # 未知类型，尝试处理next和statement
-            if 'statement' in dict_node and dict_node['statement']:
-                stmt_block = dict_node['statement'].get('block')
-                if stmt_block:
-                    final_dict, cnt_time = read_dict_xml(stmt_block, final_dict, cnt_time)
-            if 'next' in dict_node and dict_node['next']:
-                next_block = dict_node['next'].get('block')
-                if next_block:
-                    final_dict, cnt_time = read_dict_xml(next_block, final_dict, cnt_time)
+            #print(f"未知类型: {block_type}")
+            # 对于未知类型，仍然尝试处理next和statement
+            if 'statement' in dict_node and dict_node['statement'] and 'block' in dict_node['statement']:
+                final_dict, cnt_time = read_dict_xml(dict_node['statement']['block'], final_dict, cnt_time)
+            if 'next' in dict_node and dict_node['next'] and 'block' in dict_node['next']:
+                final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
 
         return final_dict, cnt_time
 
     except Exception as e:
-        print(f"解析错误: {e}")
+        print(f"错误: {e}")
         import traceback
         traceback.print_exc()
         return final_dict, cnt_time
