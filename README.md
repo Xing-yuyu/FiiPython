@@ -163,7 +163,7 @@ FiiPython/
 ├── FiiPython/                 # 主代码包
 │   ├── __init__.py            # 包初始化
 │   ├── ReadFii.py             # FII文件解析
-│   ├── CaculateState.py       # 运动状态计算
+│   ├── CalculateState.py       # 运动状态计算
 │   ├── DrawDrone.py           # 可视化绘制
 │   ├── VideoSaver.py          # 视频保存
 │   └── utils.py               # 工具函数
