@@ -7,7 +7,7 @@ FiiPython - FII无人机仿真系统
 
 主要模块：
 - ReadFii: 解析XML格式的动作文件
-- CaculateState: 计算无人机连续运动状态
+- CalculateState: 计算无人机连续运动状态
 - DrawDrone: 生成可视化帧并保存视频
 - VideoSaver: 内存优化的视频保存工具
 
@@ -20,14 +20,14 @@ __license__ = 'MIT'
 
 # 导入子模块
 from . import ReadFii
-from . import CaculateState as CS
+from . import CalculateState as CS
 from . import DrawDrone
 from . import VideoSaver
 from . import utils
 
 # 为了方便使用，导出主要函数
 from .ReadFii import readFii
-from .CaculateState import caculateState
+from .CalculateState import calculateState
 from .DrawDrone import show, save_video, generate_frames
 from .VideoSaver import VideoSaver
 
@@ -40,7 +40,7 @@ utils = utils
 
 __all__ = [
     'readFii',
-    'caculateState',
+    'calculateState',
     'show',
     'save_video',
     'generate_frames',

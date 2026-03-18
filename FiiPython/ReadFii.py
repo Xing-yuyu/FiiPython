@@ -77,7 +77,7 @@ def read_dict_xml(dict_node, final_dict, cnt_time):  # 递归读这个飞机的x
 
         elif block_type == 'block_delay':  # 太好了终于是delay
             unit_of_time = dict_node['field'][0]['#text']  # 为str 0=ms 1=s 2=minute
-            value = int(dict_node['field'][1]['#text'])
+            value = int(float(dict_node['field'][1]['#text']))
             ###print(unit_of_time,value)
 
             time_multipliers = {'0': 1, '1': 1000, '2': 60000}
@@ -101,8 +101,8 @@ def read_dict_xml(dict_node, final_dict, cnt_time):  # 递归读这个飞机的x
         # 2代灯光 - 全身灯光 (机身+马达) 使用 All 前缀
         elif block_type == 'Goertek_LEDBreathALL2':  # 全身呼吸灯 {'AllBreath': {'color':(r,g,b),'time1':time1,'time2':time2,'brightness':百分数化小数}}
             color = hex_to_rgb(dict_node['field'][1]['#text'])
-            time1 = int(dict_node['field'][0]['#text'])
-            time2 = int(dict_node['field'][3]['#text'])
+            time1 = int(float(dict_node['field'][0]['#text']))
+            time2 = int(float(dict_node['field'][3]['#text']))
             brightness = float(dict_node['field'][2]['#text'])
             final_dict[cnt_time]['AllBreath'] = {'color': color, 'time1': time1, 'time2': time2,
                                                  'brightness': brightness}
@@ -129,8 +129,8 @@ def read_dict_xml(dict_node, final_dict, cnt_time):  # 递归读这个飞机的x
         elif block_type == 'Goertek_LEDBlinkALL2':  # 全身闪烁灯 {'AllBlink': {'color':(r,g,b),'brightness':brightness,'dur':dur,'delay':delay}}
             color = hex_to_rgb(dict_node['field'][0]['#text'])
             brightness = float(dict_node['field'][1]['#text'])
-            dur = int(dict_node['field'][2]['#text'])
-            delay = int(dict_node['field'][3]['#text'])
+            dur = int(float(dict_node['field'][2]['#text']))
+            delay = int(float(dict_node['field'][3]['#text']))
             final_dict[cnt_time]['AllBlink'] = {'color': color, 'brightness': brightness, 'dur': dur, 'delay': delay}
             #print(final_dict, cnt_time)
             # 处理next中的block
@@ -140,8 +140,8 @@ def read_dict_xml(dict_node, final_dict, cnt_time):  # 递归读这个飞机的x
         # 3代灯光 - 机身灯光 (不含马达)
         elif block_type == 'Goertek_LEDBreathALL3':  # 机身呼吸灯 {'BodyBreath': {'color':(r,g,b),'time1':time1,'time2':time2,'brightness':百分数化小数}}
             color = hex_to_rgb(dict_node['field'][1]['#text'])
-            time1 = int(dict_node['field'][0]['#text'])
-            time2 = int(dict_node['field'][3]['#text'])
+            time1 = int(float(dict_node['field'][0]['#text']))
+            time2 = int(float(dict_node['field'][3]['#text']))
             brightness = float(dict_node['field'][2]['#text'])
             final_dict[cnt_time]['BodyBreath'] = {'color': color, 'time1': time1, 'time2': time2,
                                                   'brightness': brightness}
@@ -168,8 +168,8 @@ def read_dict_xml(dict_node, final_dict, cnt_time):  # 递归读这个飞机的x
         elif block_type == 'Goertek_LEDBlinkALL3':  # 机身闪烁灯 {'BodyBlink': {'color':(r,g,b),'brightness':brightness,'dur':dur,'delay':delay}}
             color = hex_to_rgb(dict_node['field'][0]['#text'])
             brightness = float(dict_node['field'][1]['#text']) / 100
-            dur = int(dict_node['field'][2]['#text'])
-            delay = int(dict_node['field'][3]['#text'])
+            dur = int(float(dict_node['field'][2]['#text']))
+            delay = int(float(dict_node['field'][3]['#text']))
             final_dict[cnt_time]['BodyBlink'] = {'color': color, 'brightness': brightness, 'dur': dur, 'delay': delay}
             #print(final_dict, cnt_time)
             # 处理next中的block
@@ -178,7 +178,7 @@ def read_dict_xml(dict_node, final_dict, cnt_time):  # 递归读这个飞机的x
 
         # 4代灯光 - 马达灯光
         elif block_type == 'Goertek_LEDTurnOnAllSingleColor4':  # 指定马达灯全亮 {'MotorOn': {'motor':马达编号, 'color':(r,g,b)}}
-            motor = int(dict_node['field'][0]['#text'])  # 马达编号：0-全亮 1~4-1~4号马达
+            motor = int(float(dict_node['field'][0]['#text']))  # 马达编号：0-全亮 1~4-1~4号马达
             color = hex_to_rgb(dict_node['field'][1]['#text'])
             final_dict[cnt_time]['MotorOn'] = {'motor': motor, 'color': color}
             # 添加注释说明马达编号含义
@@ -201,11 +201,11 @@ def read_dict_xml(dict_node, final_dict, cnt_time):  # 递归读这个飞机的x
                 final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
 
         elif block_type == 'Goertek_LEDBlinkALL4':  # 指定马达闪烁灯 {'MotorBlink': {'motor':马达编号, 'color':(r,g,b), 'brightness':brightness, 'dur':dur, 'delay':delay}}
-            motor = int(dict_node['field'][0]['#text'])  # 马达编号：0-全亮 1~4-1~4号马达
+            motor = int(float(dict_node['field'][0]['#text']))  # 马达编号：0-全亮 1~4-1~4号马达
             color = hex_to_rgb(dict_node['field'][1]['#text'])
             brightness = float(dict_node['field'][2]['#text'])
-            dur = int(dict_node['field'][3]['#text'])
-            delay = int(dict_node['field'][4]['#text'])
+            dur = int(float(dict_node['field'][3]['#text']))
+            delay = int(float(dict_node['field'][4]['#text']))
             final_dict[cnt_time]['MotorBlink'] = {'motor': motor, 'color': color, 'brightness': brightness, 'dur': dur,
                                                   'delay': delay}
             # 添加注释说明马达编号含义
@@ -217,11 +217,11 @@ def read_dict_xml(dict_node, final_dict, cnt_time):  # 递归读这个飞机的x
                 final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
 
         elif block_type == 'Goertek_LEDBreathALL4':  # 指定马达呼吸灯 {'MotorBreath': {'motor':马达编号, 'color':(r,g,b), 'time1':time1, 'time2':time2, 'brightness':brightness}}
-            motor = int(dict_node['field'][0]['#text'])  # 马达编号：0-全亮 1~4-1~4号马达
-            time1 = int(dict_node['field'][1]['#text'])
+            motor = int(float(dict_node['field'][0]['#text']))  # 马达编号：0-全亮 1~4-1~4号马达
+            time1 = int(float(dict_node['field'][1]['#text']))
             color = hex_to_rgb(dict_node['field'][2]['#text'])
             brightness = float(dict_node['field'][3]['#text'])
-            time2 = int(dict_node['field'][4]['#text'])
+            time2 = int(float(dict_node['field'][4]['#text']))
             final_dict[cnt_time]['MotorBreath'] = {'motor': motor, 'color': color, 'time1': time1, 'time2': time2,
                                                    'brightness': brightness}
             # 添加注释说明马达编号含义
@@ -248,8 +248,8 @@ def read_dict_xml(dict_node, final_dict, cnt_time):  # 递归读这个飞机的x
                 final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
 
         elif block_type == 'Goertek_HorizontalSpeed':  # 水平速度加速度 {'XYSpeed': [v,a]}
-            v = int(dict_node['field'][0]['#text'])
-            a = int(dict_node['field'][1]['#text'])
+            v = int(float(dict_node['field'][0]['#text']))
+            a = int(float(dict_node['field'][1]['#text']))
             final_dict[cnt_time]['XYSpeed'] = [v, a]
             #print(final_dict, cnt_time)
             # 处理next中的block
@@ -257,8 +257,8 @@ def read_dict_xml(dict_node, final_dict, cnt_time):  # 递归读这个飞机的x
                 final_dict, cnt_time = read_dict_xml(dict_node['next']['block'], final_dict, cnt_time)
 
         elif block_type == 'Goertek_VerticalSpeed':  # 竖直速度加速度 {'ZSpeed': [v,a]}
-            v = int(dict_node['field'][0]['#text'])
-            a = int(dict_node['field'][1]['#text'])
+            v = int(float(dict_node['field'][0]['#text']))
+            a = int(float(dict_node['field'][1]['#text']))
             final_dict[cnt_time]['ZSpeed'] = [v, a]
             #print(final_dict, cnt_time)
             # 处理next中的block
@@ -296,9 +296,9 @@ def read_dict_xml(dict_node, final_dict, cnt_time):  # 递归读这个飞机的x
         # 其他块类型
         elif block_type == 'Goertek_Point2':  # 定义点 {'Point': {'name':name, 'coord':[x,y,z]}}
             name = dict_node['field'][0]['#text']
-            x = int(dict_node['field'][1]['#text'])
-            y = int(dict_node['field'][2]['#text'])
-            z = int(dict_node['field'][3]['#text'])
+            x = int(float(dict_node['field'][1]['#text']))
+            y = int(float(dict_node['field'][2]['#text']))
+            z = int(float(dict_node['field'][3]['#text']))
             final_dict[cnt_time]['Point'] = {'name': name, 'coord': [x, y, z]}
             #print(final_dict, cnt_time)
             # 处理next中的block
@@ -315,7 +315,7 @@ def read_dict_xml(dict_node, final_dict, cnt_time):  # 递归读这个飞机的x
 
         elif block_type == 'Goertek_TurnTo':  # 转向到角度 {'TurnTo': {'direction':direction, 'angle':angle}}
             direction = dict_node['field'][0]['#text']
-            angle = int(dict_node['field'][1]['#text'])
+            angle = int(float(dict_node['field'][1]['#text']))
             final_dict[cnt_time]['TurnTo'] = {'direction': direction, 'angle': angle}
             #print(final_dict, cnt_time)
             # 处理next中的block
@@ -324,7 +324,7 @@ def read_dict_xml(dict_node, final_dict, cnt_time):  # 递归读这个飞机的x
 
         elif block_type == 'Goertek_Turn':  # 转向 {'Turn': {'direction':direction, 'angle':angle}}
             direction = dict_node['field'][0]['#text']
-            angle = int(dict_node['field'][1]['#text'])
+            angle = int(float(dict_node['field'][1]['#text']))
             final_dict[cnt_time]['Turn'] = {'direction': direction, 'angle': angle}
             #print(final_dict, cnt_time)
             # 处理next中的block
@@ -333,7 +333,7 @@ def read_dict_xml(dict_node, final_dict, cnt_time):  # 递归读这个飞机的x
 
         elif block_type == 'Goertek_HighSpeedTranslate':  # 高速平移 {'HighSpeedTranslate': {'axis':axis, 'distance':d}}
             axis = dict_node['field'][0]['#text']
-            distance = int(dict_node['field'][1]['#text'])
+            distance = int(float(dict_node['field'][1]['#text']))
             final_dict[cnt_time]['HighSpeedTranslate'] = {'axis': axis, 'distance': distance}
             #print(final_dict, cnt_time)
             # 处理next中的block
@@ -342,7 +342,7 @@ def read_dict_xml(dict_node, final_dict, cnt_time):  # 递归读这个飞机的x
 
         elif block_type == 'Goertek_SimpleHarmonicMotio':  # 简谐运动 {'SimpleHarmonicMotion': {'axis':axis, 'amplitude':amplitude}}
             axis = dict_node['field'][0]['#text']
-            amplitude = int(dict_node['field'][1]['#text'])
+            amplitude = int(float(dict_node['field'][1]['#text']))
             final_dict[cnt_time]['SimpleHarmonicMotion'] = {'axis': axis, 'amplitude': amplitude}
             #print(final_dict, cnt_time)
             # 处理next中的block
@@ -509,11 +509,15 @@ def read_fii_xml():
 
     takeoff_pos_list = []
     for i in range(drone_nums):
-        x, y = dict_data['GoertekGraphicXml']['ActionFlightPosX'][i]['@actionfX'], \
-        dict_data['GoertekGraphicXml']['ActionFlightPosY'][i]['@actionfY']
-        xx = int(x[x.index('s') + 1:])
-        yy = int(y[y.index('s') + 1:])
-        takeoff_pos_list.append([xx, yy])
+        try:
+            x, y = dict_data['GoertekGraphicXml']['ActionFlightPosX'][i]['@actionfX'], \
+            dict_data['GoertekGraphicXml']['ActionFlightPosY'][i]['@actionfY']
+            xx = int(x[x.index('s') + 1:])
+            yy = int(y[y.index('s') + 1:])
+            takeoff_pos_list.append([xx, yy])
+        except Exception as e:
+            print(e)
+            print('有空动作组')
     print(takeoff_pos_list)
 
     return size,takeoff_pos_list

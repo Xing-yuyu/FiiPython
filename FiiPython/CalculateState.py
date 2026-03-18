@@ -1,4 +1,4 @@
-# CaculateState.py (添加相对移动功能)
+# calculateState.py (添加相对移动功能)
 import json
 import math
 from typing import Dict, List, Tuple, Optional, Any
@@ -142,7 +142,6 @@ class MotorHorseEffect(LightEffect):
         """
         return (0, 0, 0)
 
-
 class MovementState:
     """运动状态 - 单位：厘米(cm)"""
 
@@ -152,60 +151,69 @@ class MovementState:
         """
         self.takeoff_pos = takeoff_pos  # 起飞点
         self.pos = [takeoff_pos[0], takeoff_pos[1], 0.0]  # 当前位置
-        self.target_pos = [takeoff_pos[0], takeoff_pos[1], 0.0]  # 目标位置
 
         # 默认速度 [速度(cm/s), 加速度(cm/s²)]
         self.xy_speed = [100.0, 100.0]  # [速度, 加速度]
-        self.z_speed = [100.0, 100.0]  # [速度, 加速度]
+        self.z_speed = [100.0, 100.0]   # [速度, 加速度]
 
         self.is_flying = False  # 是否在飞行中
 
-        # 运动状态
-        self.start_move_time = 0  # 开始移动的时间(ms)
-        self.start_pos = [takeoff_pos[0], takeoff_pos[1], 0.0]  # 开始移动的位置
+        # ========== 普通运动状态 ==========
+        self.normal_move = {
+            'active': False,
+            'start_time': 0,
+            'start_pos': [takeoff_pos[0], takeoff_pos[1], 0.0],
+            'target_pos': [takeoff_pos[0], takeoff_pos[1], 0.0],
+            'target_vx': 0.0,
+            'target_vy': 0.0,
+            'target_vz': 0.0,
+            'duration': 0,
+            'end_time': 0
+        }
 
-        # 当前运动的速度 (cm/s) - 用于连续运动
+        # ========== 简谐运动状态 ==========
+        self.harmonic = {
+            'active': False,
+            'start_time': 0,
+            'start_pos': [takeoff_pos[0], takeoff_pos[1], 0.0],
+            'axis': 'x',
+            'direction': 1,  # 1 或 -1
+            'amplitude': 0.0,
+            'duration': 5000,  # 固定5秒
+            'end_time': 0,
+            'phase1_end': 0,
+            'phase2_end': 0,
+            'phase3_end': 0
+        }
+
+        # 当前运动的速度 (cm/s)
         self.current_vx = 0.0
         self.current_vy = 0.0
         self.current_vz = 0.0
 
-        # 运动参数 - 简化为每个轴的目标速度和加速度
-        self.target_vx = 0.0
-        self.target_vy = 0.0
-        self.target_vz = 0.0
-        self.accel_x = 0.0
-        self.accel_y = 0.0
-        self.accel_z = 0.0
-
-        self.estimated_duration = 0  # 预计移动总时间 (s)
-        self.estimated_end_time = 0  # 预计结束时间 (ms)
         self.last_command_time = 0  # 最后指令时间
-
-        # 运动标志
-        self.is_moving = False
 
     def _get_current_velocity(self) -> Tuple[float, float, float]:
         """获取当前时刻的实际速度"""
         return (self.current_vx, self.current_vy, self.current_vz)
 
+    # ========== 普通运动方法 ==========
+
     def takeoff(self, height: float, current_time: int):
         """起飞到指定高度"""
         self.is_flying = True
-        self.is_moving = True
+        self._stop_harmonic()  # 停止任何进行中的简谐运动
 
-        # 记录开始运动时的状态
-        self.start_move_time = current_time
-        self.start_pos = self.pos.copy()
-        self.target_pos = [self.takeoff_pos[0], self.takeoff_pos[1], height]
+        # 设置普通运动
+        self.normal_move['active'] = True
+        self.normal_move['start_time'] = current_time
+        self.normal_move['start_pos'] = self.pos.copy()
+        self.normal_move['target_pos'] = [self.takeoff_pos[0], self.takeoff_pos[1], height]
 
-        # 设置运动参数
+        # 计算运动参数
         distance = height - self.pos[2]
         direction = 1 if distance > 0 else -1
-
-        # 目标速度（最大速度）
-        self.target_vz = self.z_speed[0] * direction
-        # 加速度
-        self.accel_z = self.z_speed[1] * direction
+        self.normal_move['target_vz'] = self.z_speed[0] * direction
 
         # 估算时间
         abs_distance = abs(distance)
@@ -213,24 +221,21 @@ class MovementState:
         a = self.z_speed[1]
 
         if a > 0:
-            # 加速到最大速度所需距离
             accel_dist = v_max * v_max / (2 * a)
             if abs_distance <= 2 * accel_dist:
-                # 三角形速度曲线
                 v_peak = math.sqrt(a * abs_distance)
-                self.estimated_duration = 2 * v_peak / a
+                self.normal_move['duration'] = 2 * v_peak / a
             else:
-                # 梯形速度曲线
                 accel_time = v_max / a
                 const_dist = abs_distance - 2 * accel_dist
                 const_time = const_dist / v_max
-                self.estimated_duration = 2 * accel_time + const_time
+                self.normal_move['duration'] = 2 * accel_time + const_time
         else:
-            self.estimated_duration = abs_distance / v_max if v_max > 0 else 0
+            self.normal_move['duration'] = abs_distance / v_max if v_max > 0 else 0
 
-        self.estimated_end_time = current_time + int(self.estimated_duration * 1000)
+        self.normal_move['end_time'] = current_time + int(self.normal_move['duration'] * 1000)
 
-        print(f"  起飞: 从{self.start_pos}到{self.target_pos}, 需要{self.estimated_duration:.2f}s")
+        print(f"  起飞: 从{self.normal_move['start_pos']}到{self.normal_move['target_pos']}, 需要{self.normal_move['duration']:.2f}s")
 
     def land(self, current_time: int):
         """降落 - 有运动过程"""
@@ -238,19 +243,16 @@ class MovementState:
             print(f"  已经在 ground")
             return
 
-        self.is_moving = True
-        self.start_move_time = current_time
-        self.start_pos = self.pos.copy()
-        self.target_pos = [self.pos[0], self.pos[1], 0.0]
+        self._stop_harmonic()  # 停止任何进行中的简谐运动
+
+        self.normal_move['active'] = True
+        self.normal_move['start_time'] = current_time
+        self.normal_move['start_pos'] = self.pos.copy()
+        self.normal_move['target_pos'] = [self.pos[0], self.pos[1], 0.0]
 
         # 设置运动参数（减速下降）
-        distance = -self.pos[2]  # 负数
-        direction = -1  # 向下
-
-        # 目标速度（负值表示向下）
-        self.target_vz = -self.z_speed[0]
-        # 加速度（负值表示减速）
-        self.accel_z = -self.z_speed[1]
+        distance = -self.pos[2]
+        self.normal_move['target_vz'] = -self.z_speed[0]
 
         # 估算时间
         abs_distance = self.pos[2]
@@ -258,137 +260,263 @@ class MovementState:
         a = self.z_speed[1]
 
         if a > 0:
-            # 减速到0所需距离
             decel_dist = v_max * v_max / (2 * a)
             if abs_distance <= decel_dist:
-                # 直接减速
-                self.estimated_duration = v_max / a
+                self.normal_move['duration'] = v_max / a
             else:
-                # 匀速然后减速
                 const_dist = abs_distance - decel_dist
                 const_time = const_dist / v_max
                 decel_time = v_max / a
-                self.estimated_duration = const_time + decel_time
+                self.normal_move['duration'] = const_time + decel_time
         else:
-            self.estimated_duration = abs_distance / v_max if v_max > 0 else 0
+            self.normal_move['duration'] = abs_distance / v_max if v_max > 0 else 0
 
-        self.estimated_end_time = current_time + int(self.estimated_duration * 1000)
+        self.normal_move['end_time'] = current_time + int(self.normal_move['duration'] * 1000)
 
-        print(f"  降落: 从高度{self.pos[2]:.1f}cm到地面, 需要{self.estimated_duration:.2f}s")
+        print(f"  降落: 从高度{self.pos[2]:.1f}cm到地面, 需要{self.normal_move['duration']:.2f}s")
 
     def move_to(self, target: List[float], current_time: int):
         """移动到目标点（绝对移动）"""
-        self.is_moving = True
-        self.start_move_time = current_time
-        self.start_pos = self.pos.copy()
-        self.target_pos = target
+        self._stop_harmonic()  # 停止任何进行中的简谐运动
+
+        self.normal_move['active'] = True
+        self.normal_move['start_time'] = current_time
+        self.normal_move['start_pos'] = self.pos.copy()
+        self.normal_move['target_pos'] = target
 
         # 计算各轴位移
         dx = target[0] - self.pos[0]
         dy = target[1] - self.pos[1]
         dz = target[2] - self.pos[2]
 
-        print(f"  绝对移动: 从{self.start_pos}到{self.target_pos}")
+        print(f"  绝对移动: 从{self.normal_move['start_pos']}到{self.normal_move['target_pos']}")
         print(f"        当前速度: vx={self.current_vx:.1f}, vy={self.current_vy:.1f}, vz={self.current_vz:.1f}")
 
-        # 计算各轴的目标速度和加速度
-        # 对于有位移的轴，设置目标速度
+        # 设置目标速度
         if abs(dx) > 0.001:
-            self.target_vx = self.xy_speed[0] if dx > 0 else -self.xy_speed[0]
-            self.accel_x = self.xy_speed[1] if dx > 0 else -self.xy_speed[1]
+            self.normal_move['target_vx'] = self.xy_speed[0] if dx > 0 else -self.xy_speed[0]
         else:
-            self.target_vx = 0
-            self.accel_x = 0
+            self.normal_move['target_vx'] = 0
 
         if abs(dy) > 0.001:
-            self.target_vy = self.xy_speed[0] if dy > 0 else -self.xy_speed[0]
-            self.accel_y = self.xy_speed[1] if dy > 0 else -self.xy_speed[1]
+            self.normal_move['target_vy'] = self.xy_speed[0] if dy > 0 else -self.xy_speed[0]
         else:
-            self.target_vy = 0
-            self.accel_y = 0
+            self.normal_move['target_vy'] = 0
 
         if abs(dz) > 0.001:
-            self.target_vz = self.z_speed[0] if dz > 0 else -self.z_speed[0]
-            self.accel_z = self.z_speed[1] if dz > 0 else -self.z_speed[1]
+            self.normal_move['target_vz'] = self.z_speed[0] if dz > 0 else -self.z_speed[0]
         else:
-            self.target_vz = 0
-            self.accel_z = 0
+            self.normal_move['target_vz'] = 0
 
-        # 估算各轴所需时间（简单估算）
+        # 估算时间
         time_x = abs(dx) / self.xy_speed[0] if abs(dx) > 0.001 else 0
         time_y = abs(dy) / self.xy_speed[0] if abs(dy) > 0.001 else 0
         time_z = abs(dz) / self.z_speed[0] if abs(dz) > 0.001 else 0
 
-        self.estimated_duration = max(time_x, time_y, time_z)
-        if self.estimated_duration <= 0:
-            self.estimated_duration = 0.001
+        self.normal_move['duration'] = max(time_x, time_y, time_z)
+        if self.normal_move['duration'] <= 0:
+            self.normal_move['duration'] = 0.001
 
-        self.estimated_end_time = current_time + int(self.estimated_duration * 1000)
+        self.normal_move['end_time'] = current_time + int(self.normal_move['duration'] * 1000)
 
-        print(f"        目标速度: vx={self.target_vx:.1f}, vy={self.target_vy:.1f}, vz={self.target_vz:.1f}")
-        print(f"        总时间: {self.estimated_duration:.2f}s")
-
-        self.last_command_time = current_time
+        print(f"        目标速度: vx={self.normal_move['target_vx']:.1f}, vy={self.normal_move['target_vy']:.1f}, vz={self.normal_move['target_vz']:.1f}")
+        print(f"        总时间: {self.normal_move['duration']:.2f}s")
 
     def move(self, offset: List[float], current_time: int):
-        """
-        相对移动 - 从当前位置移动指定的偏移量
-
-        Args:
-            offset: 相对偏移量 [dx, dy, dz] (整数，可正可负)
-            current_time: 当前时间戳
-        """
-        # 计算目标位置 = 当前位置 + 偏移量
+        """相对移动"""
         target = [
             self.pos[0] + offset[0],
             self.pos[1] + offset[1],
             self.pos[2] + offset[2]
         ]
-
         print(f"  相对移动: 偏移{offset} -> 目标位置{target}")
-
-        # 调用绝对移动逻辑
         self.move_to(target, current_time)
 
-    def calculate_position(self, current_time: int) -> List[float]:
-        """
-        根据简化的运动学公式计算当前位置
-        使用速度控制，避免复杂的二次方程
-        修改：到达目标后保持静止，但不会出错
-        """
-        dt = (current_time - self.start_move_time) / 1000.0
+    # ========== 简谐运动方法 ==========
 
-        # 如果还没开始移动，返回起始位置
+    def start_simple_harmonic(self, axis: str, amplitude: float, current_time: int):
+        """开始简谐运动"""
+        # 停止任何进行中的普通运动
+        self.normal_move['active'] = False
+
+        # 解析方向和轴
+        axis_input = axis.lower()
+        if axis_input.startswith('-'):
+            direction = -1
+            axis_name = axis_input[1:]
+        else:
+            direction = 1
+            axis_name = axis_input
+
+        # 设置简谐运动状态
+        self.harmonic['active'] = True
+        self.harmonic['start_time'] = current_time
+        self.harmonic['start_pos'] = self.pos.copy()
+        self.harmonic['axis'] = axis_name
+        self.harmonic['direction'] = direction
+        self.harmonic['amplitude'] = amplitude
+        self.harmonic['end_time'] = current_time + 5000
+
+        # 计算三个阶段的时间点
+        self.harmonic['phase1_end'] = current_time + 1250  # 0-1.25s
+        self.harmonic['phase2_end'] = current_time + 3750  # 1.25-3.75s
+        self.harmonic['phase3_end'] = current_time + 5000  # 3.75-5.0s
+
+        direction_str = "正向" if direction > 0 else "负向"
+        print(f"  简谐运动开始: {axis_input}轴, 方向={direction_str}, 振幅={amplitude}cm")
+        print(f"    起始位置: {self.pos}")
+
+    def _stop_harmonic(self):
+        """停止简谐运动，清理状态"""
+        if self.harmonic['active']:
+            self.harmonic['active'] = False
+            print(f"    简谐运动被中断，当前位置: {self.pos}")
+
+    # ========== 位置计算方法 ==========
+
+    def calculate_position(self, current_time: int) -> List[float]:
+        """计算当前位置"""
+        # 优先处理简谐运动
+        if self.harmonic['active']:
+            return self._calculate_harmonic_position(current_time)
+
+        # 处理普通运动
+        if self.normal_move['active']:
+            return self._calculate_normal_position(current_time)
+
+        # 没有运动，返回当前位置
+        return self.pos.copy()
+
+    def _calculate_normal_position(self, current_time: int) -> List[float]:
+        """计算普通运动位置"""
+        move = self.normal_move
+        dt = (current_time - move['start_time']) / 1000.0
+
+        # 如果还没开始
         if dt <= 0:
             return self.pos.copy()
 
-        # 计算运动进度
-        progress = min(1.0, dt / self.estimated_duration) if self.estimated_duration > 0 else 1.0
-
-        # 简单的线性插值（但保留速度信息用于连续运动）
-        if progress < 1.0:
-            # 位置：起始位置 + 进度 * 位移
-            x = self.start_pos[0] + (self.target_pos[0] - self.start_pos[0]) * progress
-            y = self.start_pos[1] + (self.target_pos[1] - self.start_pos[1]) * progress
-            z = self.start_pos[2] + (self.target_pos[2] - self.start_pos[2]) * progress
-
-            # 速度：基于目标速度的简单估算
-            self.current_vx = self.target_vx * (1 - progress) if abs(self.target_vx) > 0 else 0
-            self.current_vy = self.target_vy * (1 - progress) if abs(self.target_vy) > 0 else 0
-            self.current_vz = self.target_vz * (1 - progress) if abs(self.target_vz) > 0 else 0
-
-            self.is_moving = True
-        else:
-            # 到达目标后，保持位置不变，速度为0
-            x, y, z = self.target_pos
+        # 如果已经结束
+        if dt >= move['duration']:
+            self.pos = move['target_pos'].copy()
             self.current_vx = 0
             self.current_vy = 0
             self.current_vz = 0
-            self.is_moving = False
-            # 注意：不修改 is_flying，因为可能还在空中
+            self.normal_move['active'] = False
+            if move['target_pos'][2] == 0:
+                self.is_flying = False
+            return self.pos.copy()
+
+        # 计算进度
+        progress = dt / move['duration']
+
+        # 线性插值
+        x = move['start_pos'][0] + (move['target_pos'][0] - move['start_pos'][0]) * progress
+        y = move['start_pos'][1] + (move['target_pos'][1] - move['start_pos'][1]) * progress
+        z = move['start_pos'][2] + (move['target_pos'][2] - move['start_pos'][2]) * progress
+
+        # 更新速度
+        self.current_vx = move['target_vx'] * (1 - progress) if abs(move['target_vx']) > 0 else 0
+        self.current_vy = move['target_vy'] * (1 - progress) if abs(move['target_vy']) > 0 else 0
+        self.current_vz = move['target_vz'] * (1 - progress) if abs(move['target_vz']) > 0 else 0
 
         self.pos = [x, y, z]
         return [x, y, z]
+
+    def _calculate_harmonic_position(self, current_time: int) -> List[float]:
+        """计算简谐运动位置"""
+        h = self.harmonic
+
+        # 如果还没开始
+        if current_time < h['start_time']:
+            return self.pos.copy()
+
+        # 如果已经结束
+        if current_time >= h['end_time']:
+            # 回到原点
+            self.pos = h['start_pos'].copy()
+            self.current_vx = 0
+            self.current_vy = 0
+            self.current_vz = 0
+            self.harmonic['active'] = False
+            print(f"    简谐运动结束，回到原点: {self.pos}")
+            return self.pos.copy()
+
+        # 计算位移
+        displacement = self._calculate_harmonic_displacement(current_time)
+
+        # 计算新位置
+        new_pos = h['start_pos'].copy()
+        axis = h['axis']
+
+        if axis == 'x':
+            new_pos[0] = h['start_pos'][0] + displacement
+            # 计算速度
+            vel = self._calculate_harmonic_velocity(current_time)
+            self.current_vx = vel
+            self.current_vy = 0
+            self.current_vz = 0
+        elif axis == 'y':
+            new_pos[1] = h['start_pos'][1] + displacement
+            vel = self._calculate_harmonic_velocity(current_time)
+            self.current_vx = 0
+            self.current_vy = vel
+            self.current_vz = 0
+        elif axis == 'z':
+            new_pos[2] = h['start_pos'][2] + displacement
+            vel = self._calculate_harmonic_velocity(current_time)
+            self.current_vx = 0
+            self.current_vy = 0
+            self.current_vz = vel
+
+        self.pos = new_pos
+        return new_pos
+
+    def _calculate_harmonic_displacement(self, current_time: int) -> float:
+        """计算简谐运动位移"""
+        h = self.harmonic
+        t = current_time - h['start_time']
+        A = h['amplitude']
+        direction = h['direction']
+
+        # 阶段1: 0-1250ms, 正向移动 A
+        if current_time <= h['phase1_end']:
+            progress = t / 1250.0
+            base = A * progress
+
+        # 阶段2: 1250-3750ms, 反向移动 2A
+        elif current_time <= h['phase2_end']:
+            t2 = t - 1250
+            progress = t2 / 2500.0
+            base = A - 2 * A * progress
+
+        # 阶段3: 3750-5000ms, 正向移动 A
+        else:
+            t3 = t - 3750
+            progress = t3 / 1250.0
+            base = -A + A * progress
+
+        return base * direction
+
+    def _calculate_harmonic_velocity(self, current_time: int) -> float:
+        """计算简谐运动速度 (cm/s)"""
+        h = self.harmonic
+        A = h['amplitude']
+        direction = h['direction']
+
+        # 阶段1速度: A / 1.25s = A * 0.8 cm/s
+        if current_time <= h['phase1_end']:
+            base_vel = A * 0.8  # A / 1.25
+
+        # 阶段2速度: -2A / 2.5s = -A * 0.8 cm/s
+        elif current_time <= h['phase2_end']:
+            base_vel = -A * 0.8  # -2A / 2.5
+
+        # 阶段3速度: A / 1.25s = A * 0.8 cm/s
+        else:
+            base_vel = A * 0.8
+
+        return base_vel * direction
 
     def update_speed(self, xy_speed: List[float] = None, z_speed: List[float] = None):
         """更新速度设置"""
@@ -397,6 +525,132 @@ class MovementState:
         if z_speed:
             self.z_speed = z_speed
 
+class SimpleHarmonicEffect:
+    """
+    简谐运动效果：往返运动
+
+    参数:
+        start_time: 开始时间(ms)
+        axis: 运动轴 'x', 'y', 'z' (带方向或不带方向)
+        amplitude: 振幅(cm)
+        duration: 总持续时间(ms) = 5000ms (固定)
+
+    方向说明:
+        'x', 'y', 'z' - 正向移动
+        '-x', '-y', '-z' - 负向移动
+
+    运动规律（以正向为例）：
+        0-1.25s:  沿axis方向移动 amplitude
+        1.25-3.75s: 向相反方向移动 2*amplitude
+        3.75-5.0s:  沿axis方向移动 amplitude (回到原点)
+    """
+
+    def __init__(self, start_time: int, axis: str, amplitude: float, duration: int = 5000):
+        self.start_time = start_time
+        self.axis_input = axis.lower()
+        self.amplitude = amplitude
+        self.duration = duration  # 固定5000ms
+
+        # 解析方向和实际轴
+        if self.axis_input.startswith('-'):
+            self.direction = -1  # 负方向
+            self.axis = self.axis_input[1:]  # 去掉负号
+        else:
+            # 处理可能带 '+' 的情况
+            if self.axis_input.startswith('+'):
+                self.axis = self.axis_input[1:]
+            else:
+                self.axis = self.axis_input
+            self.direction = 1  # 正方向
+
+        # 三个阶段的时间点
+        self.phase1_end = start_time + duration // 4  # 0-1.25s: 正向移动 amplitude
+        self.phase2_end = start_time + duration * 3 // 4  # 1.25-3.75s: 反向移动 2*amplitude
+        self.phase3_end = start_time + duration  # 3.75-5.0s: 正向移动 amplitude
+
+        direction_str = "正向" if self.direction > 0 else "负向"
+        print(f"  简谐运动: axis={self.axis}, 方向={direction_str}, amplitude={amplitude}cm, duration={duration}ms")
+        print(f"    阶段1: {start_time}->{self.phase1_end}ms, {direction_str}{amplitude}cm")
+        print(f"    阶段2: {self.phase1_end}->{self.phase2_end}ms, 反向{2 * amplitude}cm")
+        print(f"    阶段3: {self.phase2_end}->{self.phase3_end}ms, {direction_str}{amplitude}cm")
+
+    def is_active(self, current_time: int) -> bool:
+        """检查简谐运动是否仍在进行中"""
+        time_in_cycle = current_time - self.start_time
+        return 0 <= time_in_cycle < self.duration
+
+    def get_displacement(self, current_time: int) -> float:
+        """
+        获取当前时间相对于起始点的位移
+
+        Args:
+            current_time: 当前时间(ms)
+
+        Returns:
+            位移量(cm)，正数表示沿axis正方向
+        """
+        time_in_cycle = current_time - self.start_time
+
+        # 还没开始
+        if time_in_cycle <= 0:
+            return 0.0
+
+        # 超过总时间，回到原点
+        if time_in_cycle >= self.duration:
+            return 0.0
+
+        # 计算基础位移（假设方向为正）
+        base_displacement = 0.0
+
+        # 阶段1: 正向移动 amplitude (0 -> +amplitude)
+        if current_time <= self.phase1_end:
+            progress = (current_time - self.start_time) / (self.duration / 4)
+            base_displacement = self.amplitude * progress
+
+        # 阶段2: 反向移动 2*amplitude (+amplitude -> -amplitude)
+        elif current_time <= self.phase2_end:
+            # 计算在阶段2中的进度
+            phase2_progress = (current_time - self.phase1_end) / (self.duration / 2)
+            # 从 +amplitude 线性降到 -amplitude
+            base_displacement = self.amplitude - 2 * self.amplitude * phase2_progress
+
+        # 阶段3: 正向移动 amplitude (-amplitude -> 0)
+        else:
+            # 计算在阶段3中的进度
+            phase3_progress = (current_time - self.phase2_end) / (self.duration / 4)
+            # 从 -amplitude 线性升到 0
+            base_displacement = -self.amplitude + self.amplitude * phase3_progress
+
+        # 根据方向调整位移
+        return base_displacement * self.direction
+
+    def get_velocity(self, current_time: int) -> float:
+        """
+        获取当前时间的速度
+
+        Returns:
+            速度(cm/ms)，需要转换为cm/s时乘以1000
+        """
+        time_in_cycle = current_time - self.start_time
+
+        if time_in_cycle <= 0 or time_in_cycle >= self.duration:
+            return 0.0
+
+        # 各阶段的基础速度（每毫秒的位移）
+        base_velocity = 0.0
+
+        if current_time <= self.phase1_end:
+            # 阶段1速度 = amplitude / (duration/4)
+            base_velocity = self.amplitude / (self.duration / 4)
+        elif current_time <= self.phase2_end:
+            # 阶段2速度 = -2*amplitude / (duration/2)
+            base_velocity = -2 * self.amplitude / (self.duration / 2)
+        else:
+            # 阶段3速度 = amplitude / (duration/4)
+            base_velocity = self.amplitude / (self.duration / 4)
+
+        # 根据方向调整速度
+        return base_velocity * self.direction
 
 class LightState:
     """灯光状态管理器"""
@@ -712,6 +966,12 @@ class DroneStateInterpolator:
         elif cmd_key == 'Move':  # 新增相对移动指令
             self.movement.move(cmd_value, current_time)
 
+        elif cmd_key == 'SimpleHarmonicMotion':  # 简谐运动指令
+            # cmd_value 格式: {'axis': 'x', 'amplitude': 50}
+            axis = cmd_value['axis']
+            amplitude = float(cmd_value['amplitude'])
+            self.movement.start_simple_harmonic(axis, amplitude, current_time)
+
         elif cmd_key == 'XYSpeed':
             self.movement.update_speed(xy_speed=cmd_value)
 
@@ -880,7 +1140,7 @@ def save_sampled_states(states: Dict[int, Dict[str, Any]], sample_rate: int = 10
     print(f"原始数据点: {len(states)}, 抽样后: {len(sampled_states)}")
 
 
-def caculateState(takeoff_pos_list, final_dict_list):
+def calculateState(takeoff_pos_list, final_dict_list):
     states_list = []
     try:
         os.mkdir('drone_states')
