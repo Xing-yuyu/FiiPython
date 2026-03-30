@@ -19,7 +19,7 @@ if __name__ == '__main__':
     print(f"无人机数量: {len(takeoff_pos_list)}")
 
     print("计算状态...")
-    states_list = fp.caculateState(takeoff_pos_list, final_dict_list)
+    states_list = fp.calculateState(takeoff_pos_list, final_dict_list)
 
     print("生成视频/显示...")
     fp.show(
