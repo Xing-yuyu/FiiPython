@@ -193,6 +193,28 @@ class MovementState:
 
         self.last_command_time = 0  # 最后指令时间
 
+    @property
+    def estimated_duration(self) -> float:
+        """获取当前运动的预计持续时间（秒）"""
+        if self.normal_move['active']:
+            return self.normal_move['duration']
+        elif self.harmonic['active']:
+            return 5.0  # 简谐运动固定5秒
+        else:
+            return 0.0
+
+    @property
+    def estimated_end_time(self) -> int:
+        """获取当前运动的预计结束时间（毫秒）"""
+        if self.normal_move['active']:
+            return self.normal_move['end_time']
+        elif self.harmonic['active']:
+            return self.harmonic['end_time']
+        else:
+            return 0
+
+    # ... 其他方法保持不变 ...
+
     def _get_current_velocity(self) -> Tuple[float, float, float]:
         """获取当前时刻的实际速度"""
         return (self.current_vx, self.current_vy, self.current_vz)
@@ -987,7 +1009,6 @@ class DroneStateInterpolator:
     def generate_states(self) -> Dict[int, Dict[str, Any]]:
         """
         生成每一毫秒的状态数据
-        修改：降落完成后继续往后多计算5s（保持运动状态）
         """
         print(f"\n生成状态数据：{self.start_time} - {self.end_time}ms")
         total_points = self.end_time - self.start_time + 1
@@ -1031,8 +1052,14 @@ class DroneStateInterpolator:
                 break
 
         if last_land_time is not None:
-            # 计算降落完成时间
-            land_duration = self.movement.estimated_duration
+            # 获取降落持续时间
+            if self.movement.normal_move['active'] and self.movement.normal_move['end_time'] > last_land_time:
+                land_duration = (self.movement.normal_move['end_time'] - last_land_time) / 1000.0
+            elif self.movement.harmonic['active'] and self.movement.harmonic['end_time'] > last_land_time:
+                land_duration = (self.movement.harmonic['end_time'] - last_land_time) / 1000.0
+            else:
+                land_duration = 5.0  # 默认5秒
+
             land_end_time = last_land_time + int(land_duration * 1000)
 
             print(f"\n>>> 降落过程: 从{last_land_time}ms开始，需要{land_duration:.2f}s，到{land_end_time}ms结束")
@@ -1046,12 +1073,11 @@ class DroneStateInterpolator:
                     'light': light_state.copy()
                 }
 
-            # 降落后再继续计算5000ms（保持运动状态）
+            # 降落后再继续计算5000ms
             print(f">>> 降落后继续计算5000ms")
             extra_end_time = land_end_time + 5000
 
             for t in range(land_end_time + 1, extra_end_time + 1):
-                # 继续计算位置（保持运动状态）
                 current_pos = self.movement.calculate_position(t)
                 light_state = self.light.get_colors(t)
                 result[t] = {
@@ -1068,7 +1094,6 @@ class DroneStateInterpolator:
             extra_end_time = last_time + 5000
 
             for t in range(last_time + 1, extra_end_time + 1):
-                # 继续计算位置（保持运动状态）
                 current_pos = self.movement.calculate_position(t)
                 light_state = self.light.get_colors(t)
                 result[t] = {
